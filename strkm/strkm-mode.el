@@ -1,3 +1,36 @@
+;;; strkm-books-mode.el --- A major mode for managing .books files -*- lexical-binding: t; -*-
+
+;; Author: Emmanuele Somma <emmanuele@exedre.org>
+;; Maintainer: Emmanuele Somma <emmanuele@exedre.org>
+;; Created: 2024-11-06
+;; Version: 0.1
+;; Keywords: data, books, convenience
+;; URL: https://github.com/exedre/strkm
+;; Package-Requires: ((emacs "24.3"))
+
+;; This file is not part of GNU Emacs.
+
+;;; License:
+
+;; This program is free software: you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+
+;; You should have received a copy of the GNU General Public License
+;; along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+;;; Commentary:
+
+;; `strkm-books-mode` is a major mode for managing book data in .books files.
+;; It provides a table-like view, parsing, and exporting capabilities.
+
+;;; Code:
 
 
 (defgroup strkm nil
@@ -18,13 +51,7 @@
   "Enable debugging."
   :type 'boolean
   :group 'strkm)
-
-(defcustom strkm-make-csv nil
-  "If non-nil, create CSV output."
-  :type 'boolean
-  :group 'strkm)
-
-(defvar strkm-source-file nil)
+  
 
 (defcustom strkm-books-columns
   '(("Authors" 20 t)
@@ -44,14 +71,46 @@ Each element in the list is a list of three values: column name, width, and sort
 		       (integer :tag "Column Width")
 		       (boolean :tag "Sortable"))))
 
+(defvar strkm-source-file nil)
+
+(defvar strkm-selected-rows nil
+  "List of selected rows in the tabulated list.")
+
+(defvar strkm-books-mode-map
+  (let ((map (make-keymap)))
+    (define-key map (kbd "C-c C-t") 'strkm-books-display-tabulated)  ;; Toggle between views
+    (define-key map (kbd "C-c C-r") 'strkm-books-toggle-view)  ;; Toggle between views
+    (define-key map (kbd "<down>") 'strkm-books-next)  
+    (define-key map (kbd "<up>") 'strkm-books-previous)
+    map)
+  "Keymap for `strkm-books-mode'.")
+
+(defvar strkm-books-tabulated-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "q") 'kill-this-buffer)  
+    (define-key map [mouse-1] 'strkm-books-click-action)  
+    (define-key map (kbd "n") 'strkm-books-next-row)  
+    (define-key map (kbd "p") 'strkm-books-previous-row)
+    (define-key map (kbd "<down>") 'strkm-books-next-row)  
+    (define-key map (kbd "<up>") 'strkm-books-previous-row)
+    (define-key map (kbd "SPC") 'strkm-books-toggle-select)  ;; Toggle selection with 'SPC'
+    (define-key map (kbd "C-a") 'strkm-books-toggle-select-all)  ;; 
+    (define-key map (kbd "C-e") 'strkm-books-export) ;; Export to CSV with 'C-c C-e'
+    map)
+  "Keymap for `strkm-books-tabulated-mode'.")
+
+(define-key strkm-books-mode-map [mouse-1] 'strkm-books-click-action)
+(define-key strkm-books-mode-map [drag-mouse-1] 'strkm-books-click-action)
+(define-key strkm-books-tabulated-mode-map [mouse-1]    'strkm-books-tabulated-click-action)
+
 
 (require 'tabulated-list)
 
 (defun strkm-books-display-tabulated ()
   "Display the contents of the .books file in a spreadsheet-like table format using tabulated-list-mode."
   (interactive)
-	;; Save buffer-local variables for the window and file name
-        (setq strkm-source-file buffer-file-name)
+  ;; Save buffer-local variables for the window and file name
+  (setq strkm-source-file buffer-file-name)
 	
   (setq strkm-source-file buffer-file-name)
   (let ((data (strkm-parse-file buffer-file-name)))
@@ -103,14 +162,13 @@ Each element in the list is a list of three values: column name, width, and sort
                                                  ("Currency" currency)
                                                  ("Price" price)))
                                              strkm-books-columns)))))			  
-                          ; (list key (vector key authors ed title city publisher year isbn format currency price))))
                       (strkm-hash-table-to-list data)))
 	;; Use tabulated-list-mode to display the table
 	(tabulated-list-init-header)
 	(tabulated-list-mode)
 	;; Definisci una mappa personale per i tasti
 	
-        (use-local-map strkm-books-view-mode-map)  ;; Attiva la mappa dei tasti locale
+        (use-local-map strkm-books-tabulated-mode-map)  ;; Attiva la mappa dei tasti locale
 	
 	;; Imposta l'ordinamento iniziale per chiave crescente
         ;; (setq tabulated-list-sort-key (cons "ID" nil)) ;; Sostituisci "ID" con il nome della colonna desiderata per il primo ordinamento	
@@ -119,9 +177,7 @@ Each element in the list is a list of three values: column name, width, and sort
 	(tabulated-list-print)
 	
 	(display-buffer (current-buffer))
-	(other-window 1)
-
-	
+	(other-window 1)	
 	))))
 
 (defun strkm-tabulated-list-get-current-row ()
@@ -167,7 +223,6 @@ Each element in the list is a list of three values: column name, width, and sort
     (other-window 1)  ;; Torna alla finestra originale
     ))
 
-
 (defun strkm-hash-table-to-list (hash-table)
   "Convert a hash table to an alist."
   (let (result)
@@ -175,7 +230,6 @@ Each element in the list is a list of three values: column name, width, and sort
                (push (cons key value) result))
              hash-table)
     result))
-
 
 (defun strkm-books-next ()
   "Sposta il cursore alla scheda successiva nel buffer e evidenzia il blocco corrente."
@@ -207,53 +261,37 @@ Each element in the list is a list of three values: column name, width, and sort
       (message "Nessuna scheda precedente trovata."))))
 
 
-(defvar strkm-books-mode-map
-  (let ((map (make-keymap)))
-    (define-key map (kbd "C-c C-t") 'strkm-books-display-tabulated)  ;; Toggle between views
-    (define-key map (kbd "C-c C-r") 'strkm-books-toggle-view)  ;; Toggle between views
-    (define-key map (kbd "<down>") 'strkm-books-next)  
-    (define-key map (kbd "<up>") 'strkm-books-previous)
-    map)
-  "Keymap for `strkm-books-mode'.")
-
 (defun kill-this-buffer ()
   "Kill this buffer and get rid of window"
   (interactive)
   (kill-buffer)
   (delete-window))
 
-(defun strkm--books-view-click-action ()
+(defun strkm-books-tabulated-click-action (event)
   "Azione da mettere in atto per il click nella book-view"
+  (interactive "e")
   (let ((entry (tabulated-list-get-entry)))
     (when entry
       ;; Aggiungi qui l'azione da eseguire
       (strkm-books-jump-to-current)
       (message "Hai cliccato sulla riga con ID: %s" (aref entry 0)))))
 
-(defmacro define-strkm-books-click-action (name action)
-  "Define a click action function named NAME that executes ACTION on a clicked row in the tabulated list."
-  `(defun ,name (event)
-     ,(format "Execute %s when clicking on a row in the tabulated list." (symbol-name action))
-     (interactive "e")
-     ;; Assicurati che l'evento di mouse sia su una posizione corretta
-     (let* ((posn (event-start event))
-            (buffer (window-buffer (posn-window posn)))
-            (position (posn-point posn)))
-       ;; Verifica che siamo nella tabella e prendi l'ID dell'elemento cliccato
-       (with-current-buffer buffer
-         (goto-char position)
-         (let ((entry (tabulated-list-get-entry)))
-           (when entry
-             (funcall #',action)  ;; Esegue l'azione specificata
-             (message "Hai cliccato sulla riga con ID: %s" (aref entry 0))))))))
+(defun strkm-books-click-action (event)
+  "Azione da mettere in atto per il click nella book-view"
+  (interactive "e")
+  ;; Assicurati che l'evento di mouse sia su una posizione corretta
+  (let* ((posn (event-start event))
+         (buffer (window-buffer (posn-window posn)))
+         (position (posn-point posn)))
+    ;; Verifica che siamo nella tabella e prendi l'ID dell'elemento cliccato
+    (with-current-buffer buffer
+      (goto-char position)
+      (let ((id (strkm-highlight-current-block)))
+	(message "Hai cliccato sulla riga con ID: %s" id)))))
 
-;; Definisce le funzioni di clic con la macro
 
-(define-strkm-books-click-action strkm-books-click-action strkm-books-jump-to-current)
-(define-strkm-books-click-action strkm-books-view-click-action-book strkm--books-view-click-action)
 
-(define-key strkm-books-mode-map [mouse-1] 'strkm-books-click-action-book)
-(define-key strkm-books-mode-map [drag-mouse-1] 'strkm-books-click-action-book)
+;; (debug-on-entry (symbol-function 'strkm-books-click-action-book))
 
 (defun strkm-highlight-current-block ()
   "Enfatizza il blocco di testo in cui si trova il cursore nel file .books.
@@ -269,7 +307,8 @@ Il blocco verrà messo in grassetto. Rimuove prima l'enfatizzazione da tutto il 
         (when start
 	    (progn
 	      (goto-char (point-min))
-              (strkm-highlight-text-block id)))))))
+              (strkm-highlight-text-block id))))
+      id)))
 
 (defun strkm-highlight-text-block (number)
   "Enfatizza il blocco di testo tra le righe di delimitazione contenenti il NUMBER fornito.
@@ -288,6 +327,7 @@ Il blocco verrà messo in grassetto. Rimuove prima l'enfatizzazione da tutto il 
     (when (and start end)
       ;; Aggiungi i delimitatori di grassetto
       (goto-char start)
+      (recenter-top-bottom 0)
       (forward-line -1)  ;; Torna alla fine della riga
       (let ((block-start (point)))
         (goto-char end)
@@ -297,57 +337,6 @@ Il blocco verrà messo in grassetto. Rimuove prima l'enfatizzazione da tutto il 
 	(read-only-mode 1)	
         (message "Blocco di testo con numero %s enfatizzato." number)))))
 
-;; Esempio di uso: 
-;; (strkm-highlight-text-block "0017")
-
-
-(defvar strkm-books-view-mode-map
-  (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "q") 'kill-this-buffer)  
-    (define-key map [mouse-1] 'strkm-books-click-action)  
-    (define-key map (kbd "n") 'strkm-books-next-row)  
-    (define-key map (kbd "p") 'strkm-books-previous-row)
-    (define-key map (kbd "<down>") 'strkm-books-next-row)  
-    (define-key map (kbd "<up>") 'strkm-books-previous-row)
-    (define-key map (kbd "SPC") 'strkm-books-toggle-select)  ;; Toggle selection with 'SPC'
-    (define-key map (kbd "C-a") 'strkm-books-toggle-select-all)  ;; 
-    (define-key map (kbd "C-e") 'strkm-books-export-csv) ;; Export to CSV with 'C-c C-e'
-    map)
-  "Keymap for `strkm-books-view-mode'.")
-
-(define-key strkm-books-view-mode-map [mouse-1] 'strkm-books-view-click-action)
-
-(defun strkm-books-toggle-view ()
-  "Toggle between raw and table view."
-  (interactive)
-  ;; Simple implementation: Toggle between showing the raw text or a table view
-  (if (get-buffer "*Books Table*")
-      (kill-buffer "*Books Table*")
-    (strkm-books-display-table)))
-
-(defun strkm-books-display-table ()
-  "Display the contents of the .books file in a tabular format."
-  (let ((data (strkm-parse-file buffer-file-name)))
-    (with-current-buffer (get-buffer-create "*Books Table*")
-      (erase-buffer)
-      (insert (format "%-5s %-20s %-10s %-30s %-15s %-20s %-5s %-15s %-10s %-10s %-10s\n"
-                      "ID" "Authors" "Ed" "Title" "City" "Publisher" "Year" "ISBN" "Format" "Currency" "Price"))
-      (insert (make-string 130 ?=) "\n")
-      (maphash (lambda (key value)
-                 (let ((authors (nth 0 value))
-                       (ed (nth 1 value))
-                       (title (nth 2 value))
-                       (city (nth 3 value))
-                       (publisher (nth 4 value))
-                       (year (nth 5 value))
-                       (isbn (nth 6 value))
-                       (format (nth 7 value))
-                       (currency (nth 8 value))
-                       (price (nth 9 value)))
-                   (insert (format "%-5s %-20s %-10s %-30s %-15s %-20s %-5s %-15s %-10s %-10s %-10s\n"
-                                   key authors ed title city publisher year isbn format currency price))))
-               data)
-      (display-buffer (current-buffer)))))
 
 (easy-menu-define strkm-books-menu strkm-books-mode-map
   "Menu for `strkm-books-mode'."
@@ -577,42 +566,6 @@ rest of the line is the title, replacing '|' with spaces."
                blocks))
 
 
-(defun strkm-export-to-csv (data filename)
-  "Export the parsed data into a CSV file for Excel."
-  (with-temp-buffer
-    ;; Loop through each parsed record
-    (maphash (lambda (key record)    
-	       (insert
-		(format
-		 (concat "%s" strkm-csv-sep
-			 "%s" strkm-csv-sep
-			 "%s" strkm-csv-sep
-			 "%s" strkm-csv-sep
-			 "%s" strkm-csv-sep
-			 "%s" strkm-csv-sep
-			 "%s" strkm-csv-sep
-			 "%s" strkm-csv-sep
-			 "%s" strkm-csv-sep
-			 "%s" strkm-csv-sep
-			 "%s\n")
-		 key
-		 (or (nth 0 record) "")  ;; Authors		 
-		 (if (nth 2 record) "x" "") ;; editor-p
-		 (or (nth 1 record) "")  ;; Title
-		 (or (nth 3 record) "")  ;; Where
-		 (or (nth 4 record) "")  ;; Publisher
-		 (or (nth 5 record) "")  ;; Year
-		 (or (nth 6 record) "")  ;; ISBN
-		 (or (nth 7 record) "")  ;; Format
-		 (or (nth 8 record) "")  ;; Currency
-		 (or (nth 9 record) "")))) ;; Price
-	     data);; price
-    ;; Write the buffer content to a CSV file
-    (write-region (point-min) (point-max) filename)))
-
-
-(defvar strkm-selected-rows nil
-  "List of selected rows in the tabulated list.")
 
 (defun strkm-books-toggle-select ()
   "Toggle the selection status for the current row."
@@ -644,34 +597,59 @@ If called with C-u, select all rows regardless of their current status."
   ;; Aggiorna la visualizzazione
   (tabulated-list-print t))
 
-
-(defun strkm-books-export-csv ()
-  "Export selected rows with '>' in the second column to a CSV file."
+(defun strkm-books-export ()
+  "Export selected rows with '>' in the second column to CSV or ORG based on the file extension."
   (interactive)
-  (let ((filename (read-string "Enter the output CSV file name: "))
-	(output ""))
+  (let ((filename (read-string "Enter the output file name (with .csv or .org): "))
+        (output "")
+	(nlines 0))
+    ;; Raccogli tutte le righe selezionate
     (dolist (entry tabulated-list-entries)
-      (let ((row (cadr entry))) ;; row contiene le colonne della tabella
+      (let ((row (cadr entry))) ;; `row` contiene le colonne della tabella
         ;; Controlla se la seconda colonna contiene '>'
         (when (string-match-p ">" (aref row 1)) ;; Posizione 1 = seconda colonna
-	  (let ((row-without-second (vector (aref row 0) ;; Prima colonna
-                                            (aref row 2) ;; Terza colonna
-                                            (aref row 3) ;; Quarta colonna
-                                            (aref row 4) ;; Quinta colonna
-                                            (aref row 5) ;; Sesta colonna
-                                            (aref row 6) ;; Settima colonna
-                                            (aref row 7) ;; Ottava colonna
-                                            (aref row 8) ;; Nona colonna
-                                            (aref row 9)) ;; Decima colonna
-				    ))
-            ;; Inserisci l'entry nel buffer come stringa separata da strkm-csv-sep
-            (setq output (concat output (mapconcat 'identity row-without-second strkm-csv-sep) "\n"))))))
-	  
+          (let ((row-data (vector (aref row 0)  ;; Prima colonna
+                                  (aref row 2)  ;; Terza colonna
+                                  (aref row 3)  ;; Quarta colonna
+                                  (aref row 4)  ;; Quinta colonna
+                                  (aref row 5)  ;; Sesta colonna
+                                  (aref row 6)  ;; Settima colonna
+                                  (aref row 7)  ;; Ottava colonna
+                                  (aref row 8)  ;; Nona colonna
+                                  (aref row 9)))) ;; Decima colonna
+            ;; Inserisci l'entry nel buffer di output come stringa separata
+	    (cl-incf nlines)
+            (setq output (concat output
+                                 (mapconcat 'identity (append row-data nil) strkm-csv-sep)
+                                 "\n"))))))    
+    ;; Determina il formato di esportazione e salva il file
     (with-temp-buffer
-      (insert output)
-      (write-file filename))
-    (message "Exported selected rows to %s" filename)))
+      (cond
+       ;; Esportazione in CSV
+       ((string-suffix-p ".csv" filename t)
+        (insert output)
+        (write-file filename)
+        (message "Exported %d rows to CSV file: %s" nlines filename))
+       ;; Esportazione in ORG usando org-mode
+       ((string-suffix-p ".org" filename t)
+        ;; Inserisci l'intestazione per la tabella org-mode
+        (insert "| ID | Authors | Type | Title | City | Publisher | Year | ISBN | Format | Currency | Price |\n")
+        (insert "|----+---------+------+-------+------+-----------+------+-------+--------+----------+-------|\n")
+        ;; Trasforma l'output in formato org-mode con "|"
+        (dolist (line (split-string output "\n" t))
+          (let ((org-line (concat "| " 
+                                  (replace-regexp-in-string (regexp-quote strkm-csv-sep) " | " line)
+                                  " |")))
+            (insert org-line "\n")))
+        ;; Allinea la tabella org-mode e scrivi il file
+        (org-table-align)
+        (write-file filename)
+        (message "Exported %d rows to ORG file: %s" nlines filename))
+       ;; Estensione non supportata
+       (t
+        (message "Unsupported file extension. Please use '.csv' or '.org'."))))))
 
+  
 (defun strkm-books-print-table ()
   "Display the tabulated list with selected rows in bold."
   (interactive)
@@ -681,7 +659,10 @@ If called with C-u, select all rows regardless of their current status."
     (tabulated-list-print)))
 
 
-
 ;; Automatically enable strkm-books-mode for files with .books extension
 (add-to-list 'auto-mode-alist '("\\.books\\'" . strkm-books-mode))
 
+
+
+(provide 'strkm-books-mode)
+;;; strkm-books-mode.el ends here
