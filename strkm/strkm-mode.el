@@ -181,7 +181,7 @@ Each element in the list is a list of three values: column name, width, and sort
 	))))
 
 (defun strkm-tabulated-list-get-current-row ()
-  "Esegue un'azione sulla riga corrente della tabella."
+  "Perform an action on the current row of the tabulated list."
   (interactive)
   (tabulated-list-get-id))
     
@@ -205,23 +205,29 @@ Each element in the list is a list of three values: column name, width, and sort
   (when (strkm-tabulated-list-get-current-row)
     (strkm-books-jump-to-current)))
     
+
 (defun strkm-books-jump-to-current ()
   "Jump to the corresponding entry in the .books file for the current row in the tabulated list."
   (let* ((entry (tabulated-list-get-entry))
-         (id (aref entry 0))  ;; Assume the ID is the first element
-	 (source-file strkm-source-file))
+         (id (aref entry 0))  ;; Assume the ID is the first element in the entry vector
+         (source-file strkm-source-file))
+    ;; Check if there's only one window; if so, split the window and open the source file in the new one
     (if (one-window-p)
         (progn
-          (split-window-below)  ;; Se non c'è una seconda finestra, la crea
-          (find-file source-file))  ;; Apri il file .books
-      (other-window 1))
-    (goto-char (point-min))  ;; Inizia dall'inizio del file
+          (split-window-below)
+          (find-file source-file))  ;; Open the .books file in the new window
+      (other-window 1))  ;; Switch to the other window if it already exists
+    ;; Go to the beginning of the .books file
+    (goto-char (point-min))
+    ;; Highlight the block of text corresponding to the current entry
     (strkm-highlight-text-block id)
-    (goto-char (point-min))  ;; Inizia dall'inizio del file
+    ;; Reposition to the start and search for the block associated with the current entry's ID
+    (goto-char (point-min))
     (search-forward (format "================================================================(%s)" id) nil t)
+    ;; Center the line at the top of the window for better visibility
     (recenter-top-bottom 0)
-    (other-window 1)  ;; Torna alla finestra originale
-    ))
+    ;; Return focus to the original window
+    (other-window 1)))
 
 (defun strkm-hash-table-to-list (hash-table)
   "Convert a hash table to an alist."
@@ -232,34 +238,29 @@ Each element in the list is a list of three values: column name, width, and sort
     result))
 
 (defun strkm-books-next ()
-  "Sposta il cursore alla scheda successiva nel buffer e evidenzia il blocco corrente."
+  "Move the cursor to the next entry in the buffer and highlight the current block."
   (interactive)
-  (let ((current (point)))  ;; Memorizza la posizione attuale del cursore
+  (let ((current (point)))  ;; Store the current cursor position
     (if (re-search-forward "^=+\\s-*(\\([0-9]+\\))" nil t)
         (progn
-          (goto-char (match-beginning 0))  ;; Sposta il cursore all'inizio della scheda trovata
-	  (forward-line)
-          (strkm-highlight-current-block))  ;; Evidenzia il blocco corrente
-      (goto-char current)  ;; Torna alla posizione originale se non viene trovata nessuna scheda
-      (message "Nessuna scheda successiva trovata."))))
+          (goto-char (match-beginning 0))  ;; Move to the start of the found entry
+          (forward-line)
+          (strkm-highlight-current-block))  ;; Highlight the current block
+      (goto-char current)  ;; Return to original position if no next entry is found
+      (message "No next entry found."))))
+
 
 (defun strkm-books-previous ()
-  "Sposta il cursore alla scheda precedente nel buffer e evidenzia il blocco corrente."
+  "Move the cursor to the previous entry in the buffer and highlight the current block."
   (interactive)
-  (let ((current (point)))  ;; Memorizza la posizione attuale del cursore    
+  (let ((current (point)))  ;; Store the current cursor position
     (if (re-search-backward "^=+\\s-*(\\([0-9]+\\))" nil t)
         (progn
-          (goto-char (match-beginning 0))  ;; Sposta il cursore all'inizio della scheda trovata
-	  (let ((current (point)))  ;; Memorizza la posizione attuale del cursore    
-	    (if (re-search-backward "^=+\\s-*(\\([0-9]+\\))" nil t)
-		(progn
-		  (goto-char (match-beginning 0))  ;; Sposta il cursore all'inizio della scheda trovata
-		  (forward-line)
-		  (strkm-highlight-current-block))  ;; Evidenzia il blocco corrente
-	      )))
-      (goto-char current)  ;; Torna alla posizione originale se non viene trovata nessuna scheda
-      (message "Nessuna scheda precedente trovata."))))
-
+          (goto-char (match-beginning 0))  ;; Move to the start of the found entry
+          (forward-line)
+          (strkm-highlight-current-block))  ;; Highlight the current block
+      (goto-char current)  ;; Return to original position if no previous entry is found
+      (message "No previous entry found."))))
 
 (defun kill-this-buffer ()
   "Kill this buffer and get rid of window"
@@ -268,83 +269,81 @@ Each element in the list is a list of three values: column name, width, and sort
   (delete-window))
 
 (defun strkm-books-tabulated-click-action (event)
-  "Azione da mettere in atto per il click nella book-view"
+  "Handle mouse click on a row in the tabulated list view in book-view mode."
   (interactive "e")
   (let ((entry (tabulated-list-get-entry)))
     (when entry
-      ;; Aggiungi qui l'azione da eseguire
+      ;; Perform action, e.g., jump to corresponding entry in .books file
       (strkm-books-jump-to-current)
-      (message "Hai cliccato sulla riga con ID: %s" (aref entry 0)))))
+      (message "You clicked on the row with ID: %s" (aref entry 0)))))
 
 (defun strkm-books-click-action (event)
-  "Azione da mettere in atto per il click nella book-view"
+  "Handle mouse click in book-view mode, moving to the clicked position and highlighting."
   (interactive "e")
-  ;; Assicurati che l'evento di mouse sia su una posizione corretta
+  ;; Ensure that the mouse event points to a valid position
   (let* ((posn (event-start event))
          (buffer (window-buffer (posn-window posn)))
          (position (posn-point posn)))
-    ;; Verifica che siamo nella tabella e prendi l'ID dell'elemento cliccato
     (with-current-buffer buffer
       (goto-char position)
+      ;; Highlight the current block and retrieve the ID
       (let ((id (strkm-highlight-current-block)))
-	(message "Hai cliccato sulla riga con ID: %s" id)))))
+        (when id
+          (message "You clicked on the block with ID: %s" id))))))
 
-
-
-;; (debug-on-entry (symbol-function 'strkm-books-click-action-book))
 
 (defun strkm-highlight-current-block ()
-  "Enfatizza il blocco di testo in cui si trova il cursore nel file .books.
-Il blocco verrà messo in grassetto. Rimuove prima l'enfatizzazione da tutto il file."
+  "Highlight the block of text where the cursor is currently located in the .books file.
+The block is made bold, and any previous highlights are removed."
   (interactive)
-
-  (let ((inhibit-read-only t))  ;; Permette modifiche nel buffer
-    ;; Trova la riga superiore del blocco
+  (let ((inhibit-read-only t))  ;; Allows modifications in the buffer
     (save-excursion
+      ;; Locate the start of the block containing the cursor
       (let* ((start (re-search-backward "^=+(\\([0-9]+\\))" nil t))
-             (id (if start (match-string 1))))  ;; Usa match-string per ottenere l'ID
-        ;; Trova la riga inferiore del blocco
-        (when start
-	    (progn
-	      (goto-char (point-min))
-              (strkm-highlight-text-block id))))
-      id)))
+             (id (when start (match-string 1))))  ;; Get the ID
+        ;; If block found, pass ID to highlight function
+        (when start	  
+	  (goto-char (point-min))
+          (strkm-highlight-text-block id))
+        id))))
+
 
 (defun strkm-highlight-text-block (number)
-  "Enfatizza il blocco di testo tra le righe di delimitazione contenenti il NUMBER fornito.
-Il blocco verrà messo in grassetto. Rimuove prima l'enfatizzazione da tutto il file."
-  (interactive "sInserisci il numero da enfatizzare: ")
+  "Highlight the text block defined by delimiters containing NUMBER.
+The block will be made bold, and any previous highlights are removed."
+  (interactive "sEnter the block number to highlight: ")
   
-  ;; Rimuovi l'enfatizzazione da tutto il buffer
-  (read-only-mode 0)
-  (remove-text-properties (point-min) (point-max) '(face nil))
+  ;; Remove previous highlights and allow modifications
+  (let ((inhibit-read-only t))
+    (remove-text-properties (point-min) (point-max) '(face nil))
 
-  ;; Trova il blocco di testo da enfatizzare
-  (goto-char (point-min))
-  (let ((start (search-forward (format "================================================================(%s)" number)))
-        (end (search-forward "================================================================"))
-        (inhibit-read-only t))  ;; Permette modifiche nel buffer
-    (when (and start end)
-      ;; Aggiungi i delimitatori di grassetto
-      (goto-char start)
-      (recenter-top-bottom 0)
-      (forward-line -1)  ;; Torna alla fine della riga
-      (let ((block-start (point)))
-        (goto-char end)
-        (forward-line -1)  ;; Torna alla fine della riga
-        ;; Inizia a segnare il blocco di testo
-        (add-text-properties block-start (point) '(face (:weight bold)))
-	(read-only-mode 1)	
-        (message "Blocco di testo con numero %s enfatizzato." number)))))
-
+    ;; Locate and highlight the specified block
+    (goto-char (point-min))
+    (let ((start (search-forward (format "================================================================(%s)" number) nil t))
+          (end (search-forward "================================================================" nil t)))
+      (if (and start end)
+	  (progn 
+	    (goto-char start)
+	    (recenter-top-bottom 0)
+	    (forward-line -1)  ;; Torna alla fine della riga
+            (let ((block-start (point))  ;; Move to start of line
+		  (block-end (progn (goto-char end) (forward-line -1) (point))))  ;; Adjust end
+              ;; Apply bold face to block
+              (add-text-properties block-start block-end '(face (:weight bold)))
+	      (goto-char start)
+              (recenter-top-bottom 0)
+              (message "Highlighted block with number %s." number)))
+	(message "Block with number %s not found." number)))
+  ;; Restore read-only mode
+    (read-only-mode 1)))
 
 (easy-menu-define strkm-books-menu strkm-books-mode-map
   "Menu for `strkm-books-mode'."
-  '("Books"  ;; Nome del menu
-    ["Display Table View" books-display-table t]  ;; Voce per visualizzare la tabella
-    ["Toggle View" strkm-books-toggle-view t]     ;; Voce per alternare la visualizzazione
-    "---"  ;; Separatore
-    ["Quit" kill-this-buffer t]))  ;; Voce per chiudere il buffer
+  '("Books"  ;; Menu name
+    ["Display Table View" books-display-table t]  ;; View Tabulated List
+
+    "---"  ;; Separator
+    ["Quit" kill-this-buffer t]))  ;; Close the buffer
 
 ;;;###autoload
 (define-derived-mode strkm-books-mode text-mode "Books"
@@ -452,22 +451,6 @@ rest of the line is the title, replacing '|' with spaces."
 	 (price (nth 6 info)))
     (list author title ed publisher where year ISBN fmt currency price)))
 
-(defun strkm-parse-file-to-csv ()
-  "Interactive function to parse an input file and create an output CSV file."
-  (interactive) ;; Makes the function callable by the user
-  (let ((input-file (read-file-name "Enter the input file path: "))	
-        (output-file (if strkm-make-csv
-		       (read-file-name "Enter the output CSV file path: ")
-		       )))
-    ;; Open and parse the input file
-    (let ((blocks (strkm-parse-file input-file)))
-      ;;(hash-table-keys blocks)
-      ;; After parsing all the lines, export the parsed data to CSV
-      (when strkm-print
-	(strkm-print-blocks blocks))
-      (when strkm-make-csv
-	(strkm-export-to-csv blocks output-file)))))
-
 ;; Helper functions for extraction
 (defun strkm-split-buffer-into-blocks ()
   "Splits the buffer content into blocks based on lines starting with '================================================================(XXXX)'.
@@ -565,36 +548,36 @@ rest of the line is the title, replacing '|' with spaces."
 		      ))
                blocks))
 
-
-
 (defun strkm-books-toggle-select ()
   "Toggle the selection status for the current row."
   (interactive)
+  ;; Get the current entry in the tabulated list
   (let* ((entry (tabulated-list-get-entry))
-         (sel (aref entry 1)))  ;; Ottieni il valore attuale di 'sel'
-    ;; Inverti lo stato di selezione
+         (sel (aref entry 1)))  ;; Retrieve the current value of 'sel' (the selection indicator)
+    ;; Invert the selection status
     (if (string= sel "")
-        (aset entry 1 ">")  ;; Se non è selezionato, metti 'X'
-      (aset entry 1 ""))    ;; Se è selezionato, rimuovi la selezione
-    ;; Aggiorna la visualizzazione
+        (aset entry 1 ">")      ;; If not selected, mark with '>'
+      (aset entry 1 ""))        ;; If selected, clear the selection
+    ;; Refresh the display to show updated selection state
     (tabulated-list-print t)))
 
 (defun strkm-books-toggle-select-all (arg)
   "Toggle the selection status for all rows.
 If called with C-u, select all rows regardless of their current status."
   (interactive "P")
+  ;; Loop through each entry in the tabulated list
   (dolist (entry tabulated-list-entries)
     (let* ((fields (cadr entry))
-           (sel (aref fields 1)))  ;; Ottieni il valore attuale di 'sel'
-      ;; Se arg è non-nil (C-u è stato premuto), seleziona tutti
-      ;; altrimenti, toggla lo stato di selezione
+           (sel (aref fields 1)))  ;; Retrieve the current value of 'sel' for each row
+      ;; If 'arg' is non-nil (C-u was pressed), select all rows
+      ;; Otherwise, toggle the selection status
       (if arg
-          (aset fields 1 ">")  ;; Seleziona tutti
-        ;; Toggle stato di selezione
+          (aset fields 1 ">")     ;; Mark all rows as selected
+        ;; Toggle individual selection status
         (if (string= sel "")
-            (aset fields 1 ">")  ;; Se non è selezionato, metti '>'
-          (aset fields 1 "")))))  ;; Se è selezionato, rimuovi la selezione
-  ;; Aggiorna la visualizzazione
+            (aset fields 1 ">")   ;; If not selected, mark with '>'
+          (aset fields 1 "")))))  ;; If selected, clear the selection
+  ;; Refresh the display to reflect changes
   (tabulated-list-print t))
 
 (defun strkm-books-export ()
@@ -602,54 +585,55 @@ If called with C-u, select all rows regardless of their current status."
   (interactive)
   (let ((filename (read-string "Enter the output file name (with .csv or .org): "))
         (output "")
-	(nlines 0))
-    ;; Raccogli tutte le righe selezionate
+        (nlines 0))
+    ;; Gather all selected rows
     (dolist (entry tabulated-list-entries)
-      (let ((row (cadr entry))) ;; `row` contiene le colonne della tabella
-        ;; Controlla se la seconda colonna contiene '>'
-        (when (string-match-p ">" (aref row 1)) ;; Posizione 1 = seconda colonna
-          (let ((row-data (vector (aref row 0)  ;; Prima colonna
-                                  (aref row 2)  ;; Terza colonna
-                                  (aref row 3)  ;; Quarta colonna
-                                  (aref row 4)  ;; Quinta colonna
-                                  (aref row 5)  ;; Sesta colonna
-                                  (aref row 6)  ;; Settima colonna
-                                  (aref row 7)  ;; Ottava colonna
-                                  (aref row 8)  ;; Nona colonna
-                                  (aref row 9)))) ;; Decima colonna
-            ;; Inserisci l'entry nel buffer di output come stringa separata
-	    (cl-incf nlines)
+      (let ((row (cadr entry))) ;; `row` contains table columns
+        ;; Check if the second column has '>'
+        (when (string-match-p ">" (aref row 1)) ;; Position 1 = second column
+          (let ((row-data (vector (aref row 0)  ;; First column
+                                  (aref row 2)  ;; Third column
+                                  (aref row 3)  ;; Fourth column
+                                  (aref row 4)  ;; Fifth column
+                                  (aref row 5)  ;; Sixth column
+                                  (aref row 6)  ;; Seventh column
+                                  (aref row 7)  ;; Eighth column
+                                  (aref row 8)  ;; Ninth column
+                                  (aref row 9)))) ;; Tenth column
+            ;; Add entry to the output buffer as a string
+            (cl-incf nlines)
             (setq output (concat output
                                  (mapconcat 'identity (append row-data nil) strkm-csv-sep)
                                  "\n"))))))    
-    ;; Determina il formato di esportazione e salva il file
+    ;; Determine export format and save the file
     (with-temp-buffer
       (cond
-       ;; Esportazione in CSV
+       ;; Export to CSV
        ((string-suffix-p ".csv" filename t)
         (insert output)
         (write-file filename)
         (message "Exported %d rows to CSV file: %s" nlines filename))
-       ;; Esportazione in ORG usando org-mode
+       ;; Export to ORG format using org-mode
        ((string-suffix-p ".org" filename t)
-        ;; Inserisci l'intestazione per la tabella org-mode
+        ;; Insert table header for org-mode
         (insert "| ID | Authors | Type | Title | City | Publisher | Year | ISBN | Format | Currency | Price |\n")
         (insert "|----+---------+------+-------+------+-----------+------+-------+--------+----------+-------|\n")
-        ;; Trasforma l'output in formato org-mode con "|"
+        ;; Convert output to org-mode table format with "|"
         (dolist (line (split-string output "\n" t))
           (let ((org-line (concat "| " 
                                   (replace-regexp-in-string (regexp-quote strkm-csv-sep) " | " line)
                                   " |")))
             (insert org-line "\n")))
-        ;; Allinea la tabella org-mode e scrivi il file
+        ;; Align org-mode table and write the file
         (org-table-align)
         (write-file filename)
         (message "Exported %d rows to ORG file: %s" nlines filename))
-       ;; Estensione non supportata
+       ;; Unsupported extension
        (t
         (message "Unsupported file extension. Please use '.csv' or '.org'."))))))
 
-  
+
+
 (defun strkm-books-print-table ()
   "Display the tabulated list with selected rows in bold."
   (interactive)
