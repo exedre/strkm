@@ -79,7 +79,7 @@ Each element in the list is a list of three values: column name, width, and sort
 (defvar strkm-books-mode-map
   (let ((map (make-keymap)))
     (define-key map (kbd "C-c C-t") 'strkm-books-display-tabulated)  ;; Toggle between views
-    (define-key map (kbd "C-c C-r") 'strkm-books-toggle-view)  ;; Toggle between views
+    (define-key map (kbd "C-q") 'kill-this-buffer)
     (define-key map (kbd "<down>") 'strkm-books-next)  
     (define-key map (kbd "<up>") 'strkm-books-previous)
     map)
@@ -340,10 +340,10 @@ The block will be made bold, and any previous highlights are removed."
 (easy-menu-define strkm-books-menu strkm-books-mode-map
   "Menu for `strkm-books-mode'."
   '("Books"  ;; Menu name
-    ["Display Table View" books-display-table t]  ;; View Tabulated List
+    ["Display Table View" strkm-books-display-tabulated t]  ;; View Tabulated List
 
     "---"  ;; Separator
-    ["Quit" kill-this-buffer t]))  ;; Close the buffer
+    ["Quit" strkm-dont-prompt-save-books t]))  ;; Close the buffer
 
 ;;;###autoload
 (define-derived-mode strkm-books-mode text-mode "Books"
@@ -364,7 +364,8 @@ is the title and the part after it (until '0.-') is the authors or editors.
 Otherwise, it assumes the first part before '|' is the author and the
 rest of the line is the title, replacing '|' with spaces."
   (let (title author ed)
-    (if (string-match "/[| ]+\\(ed\\.[| ]+\\)?by[| ]+\\(.*?\\)[| ]+0\\.-|$" line)
+    (if (string-match
+	 "/[| ]+\\(ed\\.[| ]+\\)?by[| ]+\\(.*?\\)[| ]+0\\.-|$" line)
         ;; Case where '/ ed. by' is present
         (progn
 	  (setq ed "x")
@@ -642,6 +643,14 @@ If called with C-u, select all rows regardless of their current status."
     (tabulated-list-init-header)
     (tabulated-list-print)))
 
+
+(defun strkm-dont-prompt-save-books ()
+  "Disable save prompt for .books buffers."  
+  (when (and buffer-file-name (string-match "\\.books\\'" buffer-file-name))
+    (set-buffer-modified-p nil)
+    t))
+
+(add-hook 'kill-buffer-query-functions 'strkm-dont-prompt-save-books)
 
 ;; Automatically enable strkm-books-mode for files with .books extension
 (add-to-list 'auto-mode-alist '("\\.books\\'" . strkm-books-mode))
