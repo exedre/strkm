@@ -52,6 +52,13 @@
   :type 'boolean
   :group 'strkm)
   
+(defcustom strkm-python-csv2xls-command "python3"
+  "Comando per trasformare un file CSV in formato XLS usando un interprete Python.
+Questo comando deve essere configurato correttamente e disponibile nel percorso.")
+
+(defcustom strkm-python-command "~/bin/csv2xls.py"
+  "Comando per trasformare un file CSV in formato XLS usando un interprete Python.
+Questo comando deve essere configurato correttamente e disponibile nel percorso.")
 
 (defcustom strkm-books-columns
   '(("Authors" 20 t)
@@ -581,10 +588,54 @@ If called with C-u, select all rows regardless of their current status."
   ;; Refresh the display to reflect changes
   (tabulated-list-print t))
 
+(defun strkm-books-export-csv (filename output nlines)
+  "Export the collected OUTPUT data to CSV with FILENAME."
+  (with-temp-buffer
+    (insert output)
+    (write-file filename)
+    (message "Exported %d rows to CSV file: %s" nlines filename)))
+
+(defun strkm-books-export-org (filename output nlines)
+  "Export the collected OUTPUT data to ORG format with FILENAME."
+  (with-temp-buffer
+    ;; Insert org-mode table header
+    (insert "| ID | Authors | Type | Title | City | Publisher | Year | ISBN | Format | Currency | Price |\n")
+    (insert "|----+---------+------+-------+------+-----------+------+-------+--------+----------+-------|\n")
+    ;; Convert output to org-mode table format with "|"
+    (dolist (line (split-string output "\n" t))
+      (let ((org-line (concat "| "
+                              (replace-regexp-in-string (regexp-quote strkm-csv-sep) " | " line)
+                              " |")))
+        (insert org-line "\n")))
+    ;; Align org-mode table and write the file
+    (org-table-align)
+    (write-file filename)
+    (message "Exported %d rows to ORG file: %s" nlines filename)))
+
+(defun strkm-books-export-xls (csv-filename xls-filename)
+  "Convert CSV-FILENAME to XLS-FILENAME using the Python csv2xls script.
+The Python interpreter and script path are defined by
+`strkm-python-csv2xls-command` and `strkm-python-command`.
+Includes an option `-s` to specify the CSV separator defined in `strkm-csv-sep`."
+  (if (and (executable-find strkm-python-csv2xls-command)
+           (file-exists-p strkm-python-command))
+      (let* ((separator-option (format "-s \"%s\"" strkm-csv-sep))
+             (command (format "%s %s %s %s %s"
+                              (shell-quote-argument strkm-python-csv2xls-command)
+                              (shell-quote-argument strkm-python-command)
+                              separator-option
+                              (shell-quote-argument csv-filename)
+                              (shell-quote-argument xls-filename))))
+        (let ((exit-code (shell-command command)))
+          (if (= exit-code 0)
+              (message "Exported CSV file %s to XLS file: %s" csv-filename xls-filename)
+            (error "Error during conversion: command exited with code %d" exit-code))))
+    (error "Python interpreter or csv2xls script not found. Please check `strkm-python-csv2xls-command` and `strkm-python-command` configuration.")))
+
 (defun strkm-books-export ()
-  "Export selected rows with '>' in the second column to CSV or ORG based on the file extension."
+  "Export selected rows with '>' in the second column to CSV, ORG, or XLS based on the file extension."
   (interactive)
-  (let ((filename (read-string "Enter the output file name (with .csv or .org): "))
+  (let ((filename (read-string "Enter the output file name (with .csv, .org, or .xls): "))
         (output "")
         (nlines 0))
     ;; Gather all selected rows
@@ -605,34 +656,27 @@ If called with C-u, select all rows regardless of their current status."
             (cl-incf nlines)
             (setq output (concat output
                                  (mapconcat 'identity (append row-data nil) strkm-csv-sep)
-                                 "\n"))))))    
-    ;; Determine export format and save the file
-    (with-temp-buffer
-      (cond
-       ;; Export to CSV
-       ((string-suffix-p ".csv" filename t)
-        (insert output)
-        (write-file filename)
-        (message "Exported %d rows to CSV file: %s" nlines filename))
-       ;; Export to ORG format using org-mode
-       ((string-suffix-p ".org" filename t)
-        ;; Insert table header for org-mode
-        (insert "| ID | Authors | Type | Title | City | Publisher | Year | ISBN | Format | Currency | Price |\n")
-        (insert "|----+---------+------+-------+------+-----------+------+-------+--------+----------+-------|\n")
-        ;; Convert output to org-mode table format with "|"
-        (dolist (line (split-string output "\n" t))
-          (let ((org-line (concat "| " 
-                                  (replace-regexp-in-string (regexp-quote strkm-csv-sep) " | " line)
-                                  " |")))
-            (insert org-line "\n")))
-        ;; Align org-mode table and write the file
-        (org-table-align)
-        (write-file filename)
-        (message "Exported %d rows to ORG file: %s" nlines filename))
-       ;; Unsupported extension
-       (t
-        (message "Unsupported file extension. Please use '.csv' or '.org'."))))))
-
+                                 "\n"))))))
+    ;; Determine export format and call appropriate function
+    (cond
+     ;; Export to CSV
+     ((string-suffix-p ".csv" filename t)
+      (strkm-books-export-csv filename output nlines))
+     ;; Export to ORG
+     ((string-suffix-p ".org" filename t)
+      (strkm-books-export-org filename output nlines))
+     ;; Export to XLS by first creating a CSV file and converting it
+     ((string-suffix-p ".xls" filename t)
+      (let ((csv-temp-file (make-temp-file "strkm-export" nil ".csv")))
+        ;; Export to CSV first
+        (strkm-books-export-csv csv-temp-file output nlines)
+        ;; Then convert to XLS
+        (strkm-books-export-xls csv-temp-file filename)
+        ;; Clean up temporary CSV file
+        (delete-file csv-temp-file)))
+     ;; Unsupported extension
+     (t
+      (message "Unsupported file extension. Please use '.csv', '.org', or '.xls'.")))))
 
 
 (defun strkm-books-print-table ()
@@ -648,14 +692,13 @@ If called with C-u, select all rows regardless of their current status."
   "Disable save prompt for .books buffers."  
   (when (and buffer-file-name (string-match "\\.books\\'" buffer-file-name))
     (set-buffer-modified-p nil)
-    t))
+    )
+  t)
 
 (add-hook 'kill-buffer-query-functions 'strkm-dont-prompt-save-books)
 
 ;; Automatically enable strkm-books-mode for files with .books extension
 (add-to-list 'auto-mode-alist '("\\.books\\'" . strkm-books-mode))
-
-
 
 (provide 'strkm-books-mode)
 ;;; strkm-books-mode.el ends here
