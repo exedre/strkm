@@ -32,6 +32,7 @@
 
 ;;; Code:
 
+(require 'tabulated-list)
 
 (defgroup strkm nil
   "Customization group for strkm."
@@ -111,7 +112,6 @@ Each element in the list is a list of three values: column name, width, and sort
 (define-key strkm-books-tabulated-mode-map [mouse-1]    'strkm-books-tabulated-click-action)
 
 
-(require 'tabulated-list)
 
 (defun strkm-books-display-tabulated ()
   "Display the contents of the .books file in a spreadsheet-like table format using tabulated-list-mode."
@@ -390,7 +390,7 @@ rest of the line is the title, replacing '|' with spaces."
 
 (defun strkm-extract-isbn-format (line)
   "Extract a valid ISBN (10 or 13 digits) from the LINE after the last '|'."
-  (let ((isbn "-") (fmt "-") (price "-"))
+  (let ((isbn "-") (fmt "-") (price "-") (currency "-"))
     ;; Extract potential ISBN (after the last '|' and before a space)
     (when (string-match "|\\([0-9Xx-]+\\) \\(\\(Paper\\|Hard\\)back\\) +\\[P R I C E\\] \\([A-Z]+\\)[ \t]+\\([0-9]+\\.[0-9]+\\)" line)
       (setq isbn (match-string 1 line))
@@ -408,7 +408,7 @@ rest of the line is the title, replacing '|' with spaces."
   - year: between the first comma ',' and the first semicolon ';'
   - ISBN: after the last '|' (the ISBN number is recognized by its format)
   - prezzo: after the string '[P R I C E]'"
-  (let (where publisher year isbn price)
+  (let (where publisher year isbn price info fmt currency)
     ;; Extract 'where' (before the first ':')
     (setq where (or (car (split-string line ":")) ""))
     
