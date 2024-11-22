@@ -53,11 +53,11 @@
   :type 'boolean
   :group 'strkm)
   
-(defcustom strkm-python-csv2xls-command "python3"
-  "Comando per trasformare un file CSV in formato XLS usando un interprete Python.
+(defcustom strkm-python-command "~/.virtualenvs/emacsenv/bin/python3"
+  "Interprete Python.
 Questo comando deve essere configurato correttamente e disponibile nel percorso.")
 
-(defcustom strkm-python-command "~/bin/csv2xls.py"
+(defcustom strkm-python-csv2xls-command "~/bin/csv2xls.py"
   "Comando per trasformare un file CSV in formato XLS usando un interprete Python.
 Questo comando deve essere configurato correttamente e disponibile nel percorso.")
 
@@ -588,76 +588,84 @@ If called with C-u, select all rows regardless of their current status."
   ;; Refresh the display to reflect changes
   (tabulated-list-print t))
 
+
 (defun strkm-books-export-csv (filename output nlines)
-  "Export the collected OUTPUT data to CSV with FILENAME."
+  "Export the collected OUTPUT data to CSV with FILENAME, including column headers."
   (with-temp-buffer
+    ;; Aggiungi l'intestazione delle colonne
+    (let ((headers (mapconcat #'car strkm-books-columns strkm-csv-sep)))
+      (insert headers "\n"))
+    ;; Inserisci le righe di output
     (insert output)
+    ;; Salva il file
     (write-file filename)
     (message "Exported %d rows to CSV file: %s" nlines filename)))
 
+
 (defun strkm-books-export-org (filename output nlines)
-  "Export the collected OUTPUT data to ORG format with FILENAME."
+  "Export the collected OUTPUT data to ORG format with FILENAME, including column headers."
   (with-temp-buffer
-    ;; Insert org-mode table header
-    (insert "| ID | Authors | Type | Title | City | Publisher | Year | ISBN | Format | Currency | Price |\n")
-    (insert "|----+---------+------+-------+------+-----------+------+-------+--------+----------+-------|\n")
-    ;; Convert output to org-mode table format with "|"
+    ;; Inserisci l'intestazione delle colonne
+    (let ((headers (concat "| " 
+                           (mapconcat #'car strkm-books-columns " | ") 
+                           " |\n"))
+          (divider (concat "|-" 
+                           (mapconcat (lambda (_) (make-string 5 ?-)) strkm-books-columns "-+-") 
+                           "-|\n")))
+      (insert headers divider))
+    ;; Converti output in formato tabella org-mode
     (dolist (line (split-string output "\n" t))
       (let ((org-line (concat "| "
                               (replace-regexp-in-string (regexp-quote strkm-csv-sep) " | " line)
                               " |")))
         (insert org-line "\n")))
-    ;; Align org-mode table and write the file
+    ;; Allinea e salva la tabella
     (org-table-align)
     (write-file filename)
     (message "Exported %d rows to ORG file: %s" nlines filename)))
 
 (defun strkm-books-export-xls (csv-filename xls-filename)
-  "Convert CSV-FILENAME to XLS-FILENAME using the Python csv2xls script.
-The Python interpreter and script path are defined by
-`strkm-python-csv2xls-command` and `strkm-python-command`.
-Includes an option `-s` to specify the CSV separator defined in `strkm-csv-sep`."
-  (if (and (executable-find strkm-python-csv2xls-command)
-           (file-exists-p strkm-python-command))
+  "Convert CSV-FILENAME to XLS-FILENAME using the Python csv2xls script, including column headers."
+  (if (and (executable-find strkm-python-command)
+           (file-exists-p (expand-file-name strkm-python-csv2xls-command)))
       (let* ((separator-option (format "-s \"%s\"" strkm-csv-sep))
              (command (format "%s %s %s %s %s"
-                              (shell-quote-argument strkm-python-csv2xls-command)
-                              (shell-quote-argument strkm-python-command)
+                              (shell-quote-argument (expand-file-name strkm-python-command))
+                              (shell-quote-argument (expand-file-name strkm-python-csv2xls-command))
                               separator-option
                               (shell-quote-argument csv-filename)
-                              (shell-quote-argument xls-filename))))
+                              (shell-quote-argument (expand-file-name xls-filename)))))
         (let ((exit-code (shell-command command)))
           (if (= exit-code 0)
               (message "Exported CSV file %s to XLS file: %s" csv-filename xls-filename)
             (error "Error during conversion: command exited with code %d" exit-code))))
     (error "Python interpreter or csv2xls script not found. Please check `strkm-python-csv2xls-command` and `strkm-python-command` configuration.")))
 
+(require 'cl-lib)
+
 (defun strkm-books-export ()
   "Export selected rows with '>' in the second column to CSV, ORG, or XLS based on the file extension."
   (interactive)
-  (let ((filename (read-string "Enter the output file name (with .csv, .org, or .xls): "))
+  (let ((filename (read-string "Enter the output file name (with .csv, .org, or .xlsx): "))
         (output "")
         (nlines 0))
-    ;; Gather all selected rows
+    ;; Raccogli tutte le righe selezionate
     (dolist (entry tabulated-list-entries)
-      (let ((row (cadr entry))) ;; `row` contains table columns
-        ;; Check if the second column has '>'
-        (when (string-match-p ">" (aref row 1)) ;; Position 1 = second column
-          (let ((row-data (vector (aref row 0)  ;; First column
-                                  (aref row 2)  ;; Third column
-                                  (aref row 3)  ;; Fourth column
-                                  (aref row 4)  ;; Fifth column
-                                  (aref row 5)  ;; Sixth column
-                                  (aref row 6)  ;; Seventh column
-                                  (aref row 7)  ;; Eighth column
-                                  (aref row 8)  ;; Ninth column
-                                  (aref row 9)))) ;; Tenth column
-            ;; Add entry to the output buffer as a string
+      (let ((row (cadr entry))) ;; `row` contiene le colonne della tabella
+        ;; Controlla se la seconda colonna contiene '>'
+        (when (string-match-p ">" (aref row 1)) ;; Posizione 1 = seconda colonna
+          (let ((row-data (mapcar (lambda (col)
+                                    (let ((index (+ 2 (cl-position (car col) strkm-books-columns :key #'car))))
+                                      (if index
+                                          (aref row index)
+                                        "")))
+                                  strkm-books-columns)))
+            ;; Aggiungi la riga all'output
             (cl-incf nlines)
             (setq output (concat output
-                                 (mapconcat 'identity (append row-data nil) strkm-csv-sep)
+                                 (mapconcat #'identity row-data strkm-csv-sep)
                                  "\n"))))))
-    ;; Determine export format and call appropriate function
+    ;; Determina il formato di esportazione e chiama la funzione appropriata
     (cond
      ;; Export to CSV
      ((string-suffix-p ".csv" filename t)
@@ -665,18 +673,18 @@ Includes an option `-s` to specify the CSV separator defined in `strkm-csv-sep`.
      ;; Export to ORG
      ((string-suffix-p ".org" filename t)
       (strkm-books-export-org filename output nlines))
-     ;; Export to XLS by first creating a CSV file and converting it
-     ((string-suffix-p ".xls" filename t)
+     ;; Export to XLSX by first creating a CSV file and converting it
+     ((string-suffix-p ".xlsx" filename t)
       (let ((csv-temp-file (make-temp-file "strkm-export" nil ".csv")))
         ;; Export to CSV first
         (strkm-books-export-csv csv-temp-file output nlines)
-        ;; Then convert to XLS
+        ;; Then convert to XLSX
         (strkm-books-export-xls csv-temp-file filename)
         ;; Clean up temporary CSV file
         (delete-file csv-temp-file)))
-     ;; Unsupported extension
+     ;; Estensione non supportata
      (t
-      (message "Unsupported file extension. Please use '.csv', '.org', or '.xls'.")))))
+      (message "Unsupported file extension. Please use '.csv', '.org', or '.xlsx'.")))))
 
 
 (defun strkm-books-print-table ()
