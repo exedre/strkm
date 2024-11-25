@@ -34,28 +34,38 @@
 
 (require 'tabulated-list)
 
+
+(defconst strkm-version "0.9"
+  "Current version of `strkm-books-mode`.")
+
+
 (defgroup strkm nil
   "Customization group for strkm."
   :group 'applications)
+
 
 (defcustom strkm-csv-sep "|"
   "Separator for CSV output."
   :type 'string
   :group 'strkm)
 
+
 (defcustom strkm-print nil
   "If non-nil, print output."
   :type 'boolean
   :group 'strkm)
 
+
 (defcustom strkm-debug t
   "Enable debugging."
   :type 'boolean
   :group 'strkm)
-  
+
+
 (defcustom strkm-python-command "~/.virtualenvs/emacsenv/bin/python3"
   "Interprete Python.
 Questo comando deve essere configurato correttamente e disponibile nel percorso.")
+
 
 (defcustom strkm-python-csv2xls-command "~/bin/csv2xls.py"
   "Comando per trasformare un file CSV in formato XLS usando un interprete Python.
@@ -345,12 +355,14 @@ The block will be made bold, and any previous highlights are removed."
     (read-only-mode 1)))
 
 (easy-menu-define strkm-books-menu strkm-books-mode-map
-  "Menu for `strkm-books-mode'."
+  "Menu for `strkm-books-mode`."
   '("Books"  ;; Menu name
     ["Display Table View" strkm-books-display-tabulated t]  ;; View Tabulated List
-
+    "---"  ;; Separator
+    ["Version: 0.9" nil nil]  ;; Non-interactive menu item for the version
     "---"  ;; Separator
     ["Quit" strkm-dont-prompt-save-books t]))  ;; Close the buffer
+
 
 ;;;###autoload
 (define-derived-mode strkm-books-mode text-mode "Books"
