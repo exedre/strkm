@@ -106,7 +106,7 @@ Each element in the list is a list of three values: column name, width, and sort
 (defvar strkm-books-tabulated-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "q") 'kill-this-buffer)  
-    (define-key map [mouse-1] 'strkm-books-click-action)  
+    (define-key map [mouse-1] 'strkm-books-tabulated-click-action)  
     (define-key map (kbd "n") 'strkm-books-next-row)  
     (define-key map (kbd "p") 'strkm-books-previous-row)
     (define-key map (kbd "<down>") 'strkm-books-next-row)  
@@ -114,8 +114,24 @@ Each element in the list is a list of three values: column name, width, and sort
     (define-key map (kbd "SPC") 'strkm-books-toggle-select)  ;; Toggle selection with 'SPC'
     (define-key map (kbd "C-a") 'strkm-books-toggle-select-all)  ;; 
     (define-key map (kbd "C-e") 'strkm-books-export) ;; Export to CSV with 'C-c C-e'
+    (define-key map (kbd "<next>") 
+      (lambda () 
+        (interactive)
+        (strkm-books-scroll-and-click 'scroll-up-command)))
+    ;; Control-Page Up
+    (define-key map (kbd "<prior>") 
+      (lambda () 
+        (interactive)
+        (strkm-books-scroll-and-click 'scroll-down-command)))
     map)
   "Keymap for `strkm-books-tabulated-mode'.")
+
+(defun strkm-books-scroll-and-click (scroll-fn)
+  "Scroll the buffer with SCROLL-FN and perform `strkm-books-click-action`."
+  (funcall scroll-fn)  ;; Esegui il comando di scroll
+  ;; Esegui l'azione associata al click sul blocco corrente
+  (let ((current-point (point)))
+    (strkm-books-tabulated-click-action `(mouse-1 (,(selected-window) ,current-point)))))
 
 (define-key strkm-books-mode-map [mouse-1] 'strkm-books-click-action)
 (define-key strkm-books-mode-map [drag-mouse-1] 'strkm-books-click-action)
