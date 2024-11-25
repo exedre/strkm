@@ -35,7 +35,7 @@
 (require 'tabulated-list)
 
 
-(defconst strkm-version "0.9"
+(defconst strkm-version "0.93"
   "Current version of `strkm-books-mode`.")
 
 
