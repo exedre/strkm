@@ -400,7 +400,9 @@ The block will be made bold, and any previous highlights are removed."
   (use-local-map strkm-books-mode-map))
 
 (defun strkm-x-string-trim (str)
-  str)
+  (if str
+      str
+    "-"))
 
 (defun strkm-extract-title-authors-or-editors (line)
   "Extract the title and authors (or editors) from the LINE.
@@ -408,7 +410,7 @@ If the line contains '/ ed. by', it assumes that the part before that
 is the title and the part after it (until '0.-') is the authors or editors.
 Otherwise, it assumes the first part before '|' is the author and the
 rest of the line is the title, replacing '|' with spaces."
-  (let (title author ed)
+  (let (title author (ed "-"))
     (if (string-match
 	 "/[| ]+\\(ed\\.[| ]+\\)?by[| ]+\\(.*?\\)[| ]+0\\.-|$" line)
         ;; Case where '/ ed. by' is present
@@ -422,7 +424,14 @@ rest of the line is the title, replacing '|' with spaces."
           (progn
 	    (setq ed "-")
             (setq author (replace-regexp-in-string "|" " " (match-string 1 line)))
-            (setq title (replace-regexp-in-string "|" " " (match-string 2 line))))))
+            (setq title (replace-regexp-in-string "|" " " (match-string 2 line))))
+	(if (string-match "^\\(.*?\\)[| ]+0\\.-" line)
+            (progn
+	      (setq ed "-")
+              (setq author "<Anonymous>")
+              (setq title (replace-regexp-in-string "|" " " (match-string 1 line))))
+	
+	)))
     ;; Return the results as a list
     (list (strkm-x-string-trim title) (strkm-x-string-trim author) ed)))
 
@@ -771,7 +780,7 @@ If called with C-u, select all rows regardless of their current status."
       ;; Rimuovi i caratteri non rappresentabili in UTF-8
       (let ((invalid-chars (lambda (char) (not (char-charset char 'utf-8)))))
         (goto-char (point-min))
-        (while (re-search-forward "[^[:ascii:]]" nil t)
+        (while (re-search-forward "[^[:print:]\t\n]" nil t)
           (when (funcall invalid-chars (char-after))
             (replace-match "?"))))      
       ;; Vai all'inizio del buffer e cerca la stringa con il pattern richiesto
