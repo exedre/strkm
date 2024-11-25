@@ -297,11 +297,19 @@ Each element in the list is a list of three values: column name, width, and sort
 	  (message "No previous entry found."))
       (message "No previous entry found"))))
 
+
 (defun kill-this-buffer ()
-  "Kill this buffer and get rid of window"
+  "Kill this buffer and close its window if there are other windows."
   (interactive)
-  (kill-buffer)
-  (delete-window))
+  (let ((buffer (current-buffer)))
+    (if (and (not (window-minibuffer-p (selected-window))) ;; Non è il minibuffer
+             (> (length (window-list)) 1))                ;; Ci sono altre finestre aperte
+        (progn
+          (kill-buffer buffer)
+          (delete-window))
+      (kill-buffer buffer)  ;; Solo uccidi il buffer se non puoi chiudere la finestra
+      (message "Buffer killed, but window not deleted."))))
+
 
 (defun strkm-books-tabulated-click-action (event)
   "Handle mouse click on a row in the tabulated list view in book-view mode."
