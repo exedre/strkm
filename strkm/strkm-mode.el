@@ -272,12 +272,14 @@ Each element in the list is a list of three values: column name, width, and sort
   (interactive)
   (let ((current (point)))  ;; Store the current cursor position
     (if (re-search-backward "^=+\\s-*(\\([0-9]+\\))" nil t)
-        (progn
-          (goto-char (match-beginning 0))  ;; Move to the start of the found entry
-          (forward-line)
-          (strkm-highlight-current-block))  ;; Highlight the current block
-      (goto-char current)  ;; Return to original position if no previous entry is found
-      (message "No previous entry found."))))
+	(if (re-search-backward "^=+\\s-*(\\([0-9]+\\))" nil t)
+            (progn
+              (goto-char (match-beginning 0))  ;; Move to the start of the found entry
+              (forward-line)
+              (strkm-highlight-current-block))  ;; Highlight the current block
+	  (goto-char current)  ;; Return to original position if no previous entry is found
+	  (message "No previous entry found."))
+      (message "No previous entry found"))))
 
 (defun kill-this-buffer ()
   "Kill this buffer and get rid of window"
@@ -715,10 +717,64 @@ If called with C-u, select all rows regardless of their current status."
     )
   t)
 
+
 (add-hook 'kill-buffer-query-functions 'strkm-dont-prompt-save-books)
+
 
 ;; Automatically enable strkm-books-mode for files with .books extension
 (add-to-list 'auto-mode-alist '("\\.books\\'" . strkm-books-mode))
+
+(defun strkm-process-message (input-file &optional recode)
+  "Processa il file di testo specificato.
+1. Legge il file con codifica windows-1252 (se RECODE è non-nil).
+2. Cancella tutto il contenuto dall'inizio fino alla stringa 'ITRBI' seguita da due linee vuote e una riga di '='.
+3. Chiede il nome del file di output, proponendo un valore predefinito basato sulla data attuale.
+4. Se il file di output esiste, chiede conferma prima di sovrascriverlo.
+5. Salva il file in codifica utf-8, sostituendo caratteri non rappresentabili con '?'."
+  (interactive "fSeleziona il file di input: \nP")
+  (let* ((current-date (format-time-string "%Y_%m_%d"))
+         (default-output-file (format "%s.books" current-date))
+         (output-file (read-file-name "Nome del file di output: " nil nil nil default-output-file)))
+    (when (and (file-exists-p output-file)
+               (not (yes-or-no-p (format "Il file '%s' esiste. Sovrascriverlo? " output-file))))
+      (user-error "Operazione annullata. Il file non è stato sovrascritto."))
+    (with-temp-buffer
+      ;; Leggi il file
+      (insert-file-contents input-file)
+      ;; Se il parametro RECODE è non-nil, salta il recode
+      (unless recode
+        (recode-region (point-min) (point-max) 'windows-1252 'utf-8))
+      ;; Rimuovi i caratteri non rappresentabili in UTF-8
+      (let ((invalid-chars (lambda (char) (not (char-charset char 'utf-8)))))
+        (goto-char (point-min))
+        (while (re-search-forward "[^[:ascii:]]" nil t)
+          (when (funcall invalid-chars (char-after))
+            (replace-match "?"))))      
+      ;; Vai all'inizio del buffer e cerca la stringa con il pattern richiesto
+      (goto-char (point-min))
+      (if (re-search-forward "^\\(=\\{64\\}(0001)\\)" nil t)
+          ;; Rimuovi tutto prima del match
+          (delete-region (point-min) (match-beginning 0))
+        (message "Stringa 'ITRBI' seguita da due linee vuote e una riga di '=' non trovata."))
+      ;; Salva il file con codifica UTF-8
+      (let ((coding-system-for-write 'utf-8))
+        (write-region (point-min) (point-max) output-file))
+      (message "File processato e salvato come: %s" output-file))))
+
+
+;; Aggiungi un sottomenu "Library" sotto "Tools" solo se non esiste
+(when (not (lookup-key global-map [menu-bar tools library]))
+  (define-key global-map [menu-bar tools library]
+    (cons "Library" (make-sparse-keymap "Library"))))
+
+;; Aggiungi il comando "Process Starkman Message" al sottomenu "Library" solo se non esiste
+(when (not (lookup-key global-map [menu-bar tools library process-starkman-message]))
+  (define-key global-map [menu-bar tools library process-starkman-message]
+    '(menu-item "Process Starkman Message"
+                (lambda ()
+                  (interactive)
+                  (call-interactively #'strkm-process-message))
+                :help "Processa un messaggio Starkman e salva in formato .books")))
 
 (provide 'strkm-books-mode)
 ;;; strkm-books-mode.el ends here
