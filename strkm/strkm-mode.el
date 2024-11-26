@@ -144,9 +144,8 @@ Each element in the list is a list of three values: column name, width, and sort
 (defun strkm-books-display-tabulated ()
   "Display the contents of the .books file in a spreadsheet-like table format using tabulated-list-mode."
   (interactive)
+  (delete-other-windows)
   ;; Save buffer-local variables for the window and file name
-  (setq strkm-source-file buffer-file-name)
-	
   (setq strkm-source-file buffer-file-name)
   (let ((data (strkm-parse-file buffer-file-name)))
     (with-current-buffer (get-buffer-create "*Books Table View*")
@@ -206,14 +205,12 @@ Each element in the list is a list of three values: column name, width, and sort
         (use-local-map strkm-books-tabulated-mode-map)  ;; Attiva la mappa dei tasti locale
 	
 	;; Imposta l'ordinamento iniziale per chiave crescente
-        ;; (setq tabulated-list-sort-key (cons "ID" nil)) ;; Sostituisci "ID" con il nome della colonna desiderata per il primo ordinamento	
-        (tabulated-list-sort 0)
-	
+        (tabulated-list-sort 0)	
 	(tabulated-list-print)
-	
-	(display-buffer (current-buffer))
-	(other-window 1)	
-	))))
+	(split-window (selected-window) nil 'below)
+	(display-buffer (current-buffer))	
+        (other-window 1)
+        (switch-to-buffer (current-buffer))))))
 
 (defun strkm-tabulated-list-get-current-row ()
   "Perform an action on the current row of the tabulated list."
