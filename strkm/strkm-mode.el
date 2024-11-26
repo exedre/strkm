@@ -757,32 +757,50 @@ If called with C-u, select all rows regardless of their current status."
 ;; Automatically enable strkm-books-mode for files with .books extension
 (add-to-list 'auto-mode-alist '("\\.books\\'" . strkm-books-mode))
 
-(defun strkm-process-message (input-file &optional recode)
+(defun remove-invalid-utf8-chars ()
+  "Replace all characters in the current buffer that cannot be represented in UTF-8 with '?'."
+  (interactive)
+  (goto-char (point-min))
+  (while (not (eobp))
+    (let ((char (char-after)))
+      ;; Verifica se il carattere è codificabile in UTF-8 con lunghezza 1
+      (if (or (null char) ;; Salta posizioni vuote
+              (condition-case nil
+                  (let ((encoded (encode-coding-string (string char) 'utf-8)))
+                    (and encoded (= (length encoded) 1))) ;; Valido solo se la stringa codificata ha lunghezza 1
+                (error nil))) ;; Se la codifica fallisce, è non rappresentabile
+          (forward-char 1) ;; Carattere valido, sposta al prossimo
+        ;; Carattere non rappresentabile
+        (delete-char 1)
+        (insert "?")))))
+
+
+(defun strkm-process-message (input-file &optional recode books-file)
   "Processa il file di testo specificato.
 1. Legge il file con codifica windows-1252 (se RECODE è non-nil).
 2. Cancella tutto il contenuto dall'inizio fino alla stringa 'ITRBI' seguita da due linee vuote e una riga di '='.
-3. Chiede il nome del file di output, proponendo un valore predefinito basato sulla data attuale.
-4. Se il file di output esiste, chiede conferma prima di sovrascriverlo.
-5. Salva il file in codifica utf-8, sostituendo caratteri non rappresentabili con '?'."
+3. Se BOOKS-FILE è fornito, usa quello come nome del file di output.
+4. Se BOOKS-FILE non è fornito, chiede il nome del file di output, proponendo un valore predefinito basato sulla data attuale.
+5. Se il file di output esiste, chiede conferma prima di sovrascriverlo.
+6. Salva il file in codifica utf-8, sostituendo caratteri non rappresentabili con '?'."
   (interactive "fSeleziona il file di input: \nP")
   (let* ((current-date (format-time-string "%Y_%m_%d"))
-         (default-output-file (format "%s.books" current-date))
-         (output-file (read-file-name "Nome del file di output: " nil nil nil default-output-file)))
+         (default-output-file (or books-file (format "%s.books" current-date)))
+         (output-file (if books-file
+                          books-file
+                        (read-file-name "Nome del file di output: " nil nil nil default-output-file))))
+    ;; Conferma se il file esiste
     (when (and (file-exists-p output-file)
                (not (yes-or-no-p (format "Il file '%s' esiste. Sovrascriverlo? " output-file))))
       (user-error "Operazione annullata. Il file non è stato sovrascritto."))
     (with-temp-buffer
       ;; Leggi il file
       (insert-file-contents input-file)
-      ;; Se il parametro RECODE è non-nil, salta il recode
+      ;; Esegui il recode se necessario
       (unless recode
         (recode-region (point-min) (point-max) 'windows-1252 'utf-8))
       ;; Rimuovi i caratteri non rappresentabili in UTF-8
-      (let ((invalid-chars (lambda (char) (not (char-charset char 'utf-8)))))
-        (goto-char (point-min))
-        (while (re-search-forward "[^[:print:]\t\n]" nil t)
-          (when (funcall invalid-chars (char-after))
-            (replace-match "?"))))      
+      (remove-invalid-utf8-chars)
       ;; Vai all'inizio del buffer e cerca la stringa con il pattern richiesto
       (goto-char (point-min))
       (if (re-search-forward "^\\(=\\{64\\}(0001)\\)" nil t)
@@ -792,7 +810,70 @@ If called with C-u, select all rows regardless of their current status."
       ;; Salva il file con codifica UTF-8
       (let ((coding-system-for-write 'utf-8))
         (write-region (point-min) (point-max) output-file))
-      (message "File processato e salvato come: %s" output-file))))
+      (message "File processato e salvato come: %s" output-file)
+      output-file)))
+
+(defun strkm-process-and-export-xls (input-file)
+  "Process a .books file and export it directly to XLS format.
+If the input file name contains a date, use it in the output file name.
+Supports formats: YYYY_MM_DD and DD-MMM-YY (e.g., 25-Nov-24)."
+  (interactive "fSelect input file to process: ")
+  (let* ((date-in-filename
+          (cond
+           ;; Cerca il formato YYYY_MM_DD
+           ((string-match "\\([0-9]\\{4\\}_[0-9]\\{2\\}_[0-9]\\{2\\}\\)" input-file)
+            (match-string 1 input-file))
+           ;; Cerca il formato DD-MMM-YY
+           ((string-match "\\([0-9]\\{2\\}-[A-Za-z]\\{3\\}-[0-9]\\{2\\}\\)" input-file)
+            ;; Converte il formato in YYYY_MM_DD
+            (let* ((date-str (match-string 1 input-file))
+                   (day (substring date-str 0 2))
+                   (month-str (substring date-str 3 6))
+                   (year (substring date-str 7 9))
+		    (month-num (cond
+				((string= month-str "Jan") "01")
+				((string= month-str "Feb") "02")
+				((string= month-str "Mar") "03")
+				((string= month-str "Apr") "04")
+				((string= month-str "May") "05")
+				((string= month-str "Jun") "06")
+				((string= month-str "Jul") "07")
+				((string= month-str "Aug") "08")
+				((string= month-str "Sep") "09")
+				((string= month-str "Oct") "10")
+				((string= month-str "Nov") "11")
+				((string= month-str "Dec") "12")
+				(t nil)))) ;; Caso predefinito per errori
+              (if month-num
+                  (format "20%s_%s_%s" year month-num day) ;; Converte in formato YYYY_MM_DD
+                nil)))
+           ;; Usa la data corrente se nessuna data è presente
+           (t (format-time-string "%Y_%m_%d"))))
+         (default-output (concat date-in-filename ".xlsx"))
+         (output-file (read-file-name "Enter XLS output file name: " nil nil nil default-output))
+         (books-file (concat (file-name-directory output-file)
+                             (concat date-in-filename ".books")))
+         (processed-file (strkm-process-message input-file nil books-file)) ;; Always recode
+         (data (strkm-parse-file processed-file))
+         (csv-temp-file (make-temp-file "strkm-export" nil ".csv")))
+    ;; Scrive il file .books nella stessa directory dell'output XLS
+    ;; (copy-file processed-file books-file t)
+    ;; Create a CSV file from the processed data
+    (with-temp-buffer
+      ;; Insert column headers
+      (insert (mapconcat (lambda (col) (nth 0 col)) strkm-books-columns strkm-csv-sep) "\n")
+      ;; Insert rows
+      (insert (mapconcat
+               (lambda (entry)
+                 (let ((row (cdr entry)))
+                   (mapconcat #'identity row strkm-csv-sep)))
+               (strkm-hash-table-to-list data) "\n"))
+      (write-region (point-min) (point-max) csv-temp-file))
+    ;; Convert the CSV to XLS
+    (strkm-books-export-xls csv-temp-file output-file)
+    ;; Clean up temporary CSV file
+    (delete-file csv-temp-file)
+    (message "Export completed: %s\nBooks file saved: %s" output-file books-file)))
 
 
 ;; Aggiungi un sottomenu "Library" sotto "Tools" solo se non esiste
@@ -808,6 +889,15 @@ If called with C-u, select all rows regardless of their current status."
                   (interactive)
                   (call-interactively #'strkm-process-message))
                 :help "Processa un messaggio Starkman e salva in formato .books")))
+
+;; Aggiungi il comando "Process and Export to XLS" al sottomenu "Library"
+(when (not (lookup-key global-map [menu-bar tools library process-and-export-xls]))
+  (define-key global-map [menu-bar tools library process-and-export-xls]
+    '(menu-item "Process and Export to XLS"
+                (lambda ()
+                  (interactive)
+                  (call-interactively #'strkm-process-and-export-xls))
+                :help "Processa un file Starkman e salva direttamente in formato XLS")))
 
 (provide 'strkm-books-mode)
 ;;; strkm-books-mode.el ends here
