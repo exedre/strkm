@@ -927,7 +927,7 @@ PARENT-MENU is the path to the parent menu, e.g., [menu-bar tools]."
 If no URL is provided, use `strkm-default-package-url`."
   (interactive)
   (load-elisp-from-url strkm-default-package-url)
-  (message "Package successfully reloaded from: %s" url))
+  (message "Package successfully reloaded from: %s" strkm-default-package-url))
   
 
 (provide 'strkm-books-mode)
