@@ -902,7 +902,7 @@ PARENT-MENU is the path to the parent menu, e.g., [menu-bar tools]."
 ;; Aggiungi un sottomenu "Library" sotto "Tools" solo se non esiste
 (when (not (lookup-key global-map [menu-bar tools library]))
   (define-key global-map [menu-bar tools library]
-    (cons (format "Library (v%s)" strkm-version) (make-sparse-keymap "Library"))))
+    (cons (format "Library (%s)" strkm-version) (make-sparse-keymap "Library"))))
 
 ;; Aggiungi il comando "Process Starkman Message" al sottomenu "Library" solo se non esiste
 (when (not (lookup-key global-map [menu-bar tools library process-starkman-message]))
