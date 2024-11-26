@@ -3,7 +3,7 @@
 ;; Author: Emmanuele Somma <emmanuele@exedre.org>
 ;; Maintainer: Emmanuele Somma <emmanuele@exedre.org>
 ;; Created: 2024-11-06
-;; Version: v1.0
+;; Version: v1.01
 ;; Keywords: data, books, convenience
 ;; URL: https://github.com/exedre/strkm
 ;; Package-Requires: ((emacs "24.3"))
@@ -35,7 +35,7 @@
 (require 'tabulated-list)
 
 
-(defconst strkm-version "v1.0"
+(defconst strkm-version "v1.01"
   "Current version of `strkm-books-mode`.")
 
 
