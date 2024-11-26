@@ -61,6 +61,8 @@
   :type 'boolean
   :group 'strkm)
 
+(defcustom strkm-default-package-url "http://example.com/strkm/strkm-mode.el"
+  "Default URL for loading or reloading the `strkm` package.")
 
 (defcustom strkm-python-command "~/.virtualenvs/emacsenv/bin/python3"
   "Interprete Python.
@@ -876,10 +878,34 @@ Supports formats: YYYY_MM_DD and DD-MMM-YY (e.g., 25-Nov-24)."
     (message "Export completed: %s\nBooks file saved: %s" output-file books-file)))
 
 
+(defun strkm-remove-menu-and-subitems (menu-name parent-menu)
+  "Remove a menu named MENU-NAME and all its subcommands from the PARENT-MENU.
+MENU-NAME is the name of the menu to remove.
+PARENT-MENU is the path to the parent menu, e.g., [menu-bar tools]."
+  (interactive "sEnter menu name to remove: \nxEnter parent menu path: ")
+  (let ((menu-key (vconcat parent-menu (vector menu-name))))
+    (when (lookup-key global-map menu-key)
+      ;; Rimuovi tutte le sottovoci
+      (mapatoms
+       (lambda (sym)
+         (let ((subkey (vconcat menu-key (vector sym))))
+           (when (lookup-key global-map subkey)
+             (define-key global-map subkey nil)))))
+      ;; Rimuovi il menu principale
+      (define-key global-map menu-key nil)
+      (message "Menu '%s' and its subcommands have been removed." menu-name))))
+
+(defun strkm-remove-library-menu ()
+  "Remove the 'Library' menu and all its subcommands from the 'Tools' menu."
+  (interactive)
+  (strkm-remove-menu-and-subitems 'library [menu-bar tools]))
+
+(strkm-remove-library-menu)
+
 ;; Aggiungi un sottomenu "Library" sotto "Tools" solo se non esiste
 (when (not (lookup-key global-map [menu-bar tools library]))
   (define-key global-map [menu-bar tools library]
-    (cons "Library" (make-sparse-keymap "Library"))))
+    (cons (format "Library (v%s)" strkm-version) (make-sparse-keymap "Library"))))
 
 ;; Aggiungi il comando "Process Starkman Message" al sottomenu "Library" solo se non esiste
 (when (not (lookup-key global-map [menu-bar tools library process-starkman-message]))
@@ -898,6 +924,14 @@ Supports formats: YYYY_MM_DD and DD-MMM-YY (e.g., 25-Nov-24)."
                   (interactive)
                   (call-interactively #'strkm-process-and-export-xls))
                 :help "Processa un file Starkman e salva direttamente in formato XLS")))
+
+(defun strkm-reload-package ()
+  "Reload the `strkm` package from the given URL.
+If no URL is provided, use `strkm-default-package-url`."
+  (interactive)
+  (load-elisp-from-url strkm-default-package-url)
+  (message "Package successfully reloaded from: %s" url))
+  
 
 (provide 'strkm-books-mode)
 ;;; strkm-books-mode.el ends here
