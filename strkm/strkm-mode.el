@@ -33,7 +33,7 @@
 ;;; Code:
 
 (require 'tabulated-list)
-
+(require 'url)  ;; Assicura la disponibilità della libreria `url.el`
 
 (defconst strkm-version "v1.01"
   "Current version of `strkm-books-mode`.")
@@ -140,6 +140,24 @@ Each element in the list is a list of three values: column name, width, and sort
 (define-key strkm-books-tabulated-mode-map [mouse-1]    'strkm-books-tabulated-click-action)
 
 
+
+
+(defun load-elisp-from-url (url)
+  "Load and evaluate an Emacs Lisp file from a given URL."
+  (let ((buffer (url-retrieve-synchronously url)))
+    (when buffer
+      (with-current-buffer buffer
+        ;; Cerca la fine dell'header HTTP, delimitato da una linea vuota
+        (goto-char (point-min))
+        (if (search-forward "\n\n" nil t)
+            (progn
+              ;; Rimuovi gli header HTTP e valuta il contenuto del buffer
+              (delete-region (point-min) (point))
+              (eval-buffer)
+              (message "Successfully loaded and evaluated the file from URL: %s" url))
+          (message "Failed to parse HTTP headers"))
+        ;; Chiudi il buffer temporaneo
+        (kill-buffer buffer)))))
 
 (defun strkm-books-display-tabulated ()
   "Display the contents of the .books file in a spreadsheet-like table format using tabulated-list-mode."
