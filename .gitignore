@@ -11,3 +11,6 @@ lavorazioni/
 
 # Attic directory - contains archive, data, and media files
 attic/
+
+# Samples directory - contains email files
+samples/
