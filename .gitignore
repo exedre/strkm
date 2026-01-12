@@ -8,3 +8,6 @@
 lavorazioni/
 
 *.bak
+
+# Attic directory - contains archive, data, and media files
+attic/

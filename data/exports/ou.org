@@ -1,3 +1,0 @@
-| Authors                   | Ed | Title                                                                                       | City | Publisher          | Year |          ISBN | Format    | Currency | Price |
-|---------------------------+----+---------------------------------------------------------------------------------------------+------+--------------------+------+---------------+-----------+----------+-------|
-| Michaelides, Panayotis G. | -  | b21 Equations that Shaped the World Economy: Understanding the Theory Behind the Equations. | Cham | PALGRAVE MACMILLAN | 2025 | 9783031761393 | Paperback | EUR      | 64.19 |
