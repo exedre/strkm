@@ -1,0 +1,288 @@
+================================================================================
+STARKMANN EMAIL TO EXCEL PROCESSOR - INSTALLATION & USAGE GUIDE
+================================================================================
+
+Version: 1.0.0
+Python: 3.7.2 or newer
+Platform: Windows, macOS, Linux
+
+================================================================================
+QUICK START (WINDOWS)
+================================================================================
+
+1. INSTALL PYTHON
+   - Download Python 3.7.2 or newer from: https://www.python.org/downloads/
+   - During installation: CHECK "Add Python to PATH"
+   - Click "Install Now" or "Customize Installation"
+
+2. INSTALL DEPENDENCIES
+   - Open Command Prompt in the strkm-gui folder
+   - Type: pip install -r requirements.txt
+   - Wait for installation to complete (should show "Successfully installed openpyxl")
+
+3. RUN THE APPLICATION
+   - Option A: Double-click "starkmann_processor.bat"
+   - Option B: Type "python starkmann_email_processor.py" in Command Prompt
+
+4. USE THE GUI
+   - Click "Browse..." next to "Input File" and select your email file (.txt or .eml)
+   - Click "Browse..." next to "Output File" to save location (auto-populated)
+   - Click "Process & Export"
+   - Check the Information panel for status
+   - Two files will be created:
+     * <date>.xlsx - Excel spreadsheet with book data
+     * <date>.books - Raw data file
+
+================================================================================
+DETAILED INSTALLATION (WINDOWS)
+================================================================================
+
+STEP 1: Install Python
+-------
+1. Go to https://www.python.org/downloads/
+2. Download "Windows Installer (64-bit)" for Python 3.7.2 or newer
+3. Run the installer
+4. IMPORTANT: Check the box "Add Python to PATH" at the bottom
+5. Click "Install Now"
+6. Wait for installation to complete
+7. Close the installer
+
+VERIFY PYTHON INSTALLATION:
+- Open Command Prompt (Win+R, type "cmd", press Enter)
+- Type: python --version
+- Should show: Python 3.X.X
+
+STEP 2: Install Dependencies
+-------
+1. Open Command Prompt
+2. Navigate to the strkm-gui folder:
+   cd "path\to\strkm-gui"
+3. Type: pip install -r requirements.txt
+4. Press Enter and wait for completion
+
+STEP 3: Run the Application
+-------
+Option A (Easiest):
+- Double-click: starkmann_processor.bat
+
+Option B (Manual):
+- Open Command Prompt in strkm-gui folder
+- Type: python starkmann_email_processor.py
+- Press Enter
+
+Option C (Using Virtual Environment - Advanced):
+- Open Command Prompt in strkm-gui folder
+- Type: python -m venv venv
+- Type: venv\Scripts\activate
+- Type: pip install -r requirements.txt
+- Type: python starkmann_email_processor.py
+
+================================================================================
+INSTALLATION (MACOS/LINUX)
+================================================================================
+
+MACOS:
+------
+1. Install Python: brew install python3
+2. Install tkinter: brew install python-tk@3.X (replace X with your version)
+3. Navigate to strkm-gui folder: cd path/to/strkm-gui
+4. Install dependencies: pip3 install -r requirements.txt
+5. Run: python3 starkmann_email_processor.py
+
+LINUX (Ubuntu/Debian):
+------
+1. Install Python: sudo apt-get install python3 python3-pip
+2. Install tkinter: sudo apt-get install python3-tk
+3. Navigate to strkm-gui folder: cd path/to/strkm-gui
+4. Install dependencies: pip3 install -r requirements.txt
+5. Make executable: chmod +x starkmann_processor.sh
+6. Run: ./starkmann_processor.sh
+   OR: python3 starkmann_email_processor.py
+
+================================================================================
+USING THE APPLICATION
+================================================================================
+
+STEP 1: Select Input File
+- Click the "Browse..." button next to "Input File"
+- Select your email file (*.txt or *.eml) containing Starkmann book data
+- The file path will appear in the text field
+
+STEP 2: Check Output File
+- The output filename will auto-populate based on the date in your input filename
+- If your file is: "25-Nov-24.txt" → Output will be: "2024_11_25.xlsx"
+- If your file is: "2024_11_25.txt" → Output will be: "2024_11_25.xlsx"
+- Click "Browse..." to change the output location if needed
+
+STEP 3: Process and Export
+- Click the blue "Process & Export" button
+- The Information panel will show:
+  ✓ Processing started...
+  ✓ Input: <your file>
+  ✓ Output: <destination>
+  ✓ Processing completed successfully!
+  ✓ Books extracted: <number>
+  ✓ Excel file saved: <path>
+  ✓ Books file saved: <path>
+
+STEP 4: Find Your Files
+- Excel file (.xlsx): Contains 10 columns with book data
+- Books file (.books): Raw processed data
+
+OUTPUT FILES COLUMNS:
+- Authors: Book authors/editors
+- Ed: Edition number
+- Title: Book title
+- City: Publishing city
+- Publisher: Publisher name
+- Year: Publication year
+- ISBN: ISBN number
+- Format: Hardback/Paperback
+- Currency: EUR/USD/etc
+- Price: Book price
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+PROBLEM: "Python is not recognized" or command not found
+SOLUTION:
+- Windows: Reinstall Python and CHECK "Add Python to PATH"
+- macOS/Linux: Use python3 instead of python (Type: python3 --version)
+
+PROBLEM: "No module named 'tkinter'"
+SOLUTION:
+- Windows: Reinstall Python, make sure to include tkinter
+- macOS: brew install python-tk@3.X
+- Linux: sudo apt-get install python3-tk
+
+PROBLEM: "No module named 'openpyxl'"
+SOLUTION:
+- Type: pip install openpyxl
+- Or: pip install -r requirements.txt
+
+PROBLEM: Error reading file or encoding issues
+SOLUTION:
+- Make sure the file is saved in UTF-8 or Windows-1252 encoding
+- Try opening the file in Notepad and re-saving as UTF-8
+
+PROBLEM: Window doesn't open or crashes
+SOLUTION:
+- Try running from Command Prompt to see error message:
+  python starkmann_email_processor.py
+- Check that Python and tkinter are installed correctly
+- Update openpyxl: pip install --upgrade openpyxl
+
+PROBLEM: Excel file is created but empty or has wrong data
+SOLUTION:
+- Verify that the input file has the correct Starkmann format
+- The file should contain blocks starting with: ================================================================(XXXX)
+- Check file encoding (should be UTF-8 or Windows-1252)
+
+================================================================================
+TESTING THE INSTALLATION
+================================================================================
+
+Run the test suite to verify everything is working:
+
+1. Open Command Prompt in the strkm-gui folder
+2. Type: python test_processor.py
+3. You should see output like:
+
+   ============================================================
+   Starkmann Email Processor - Test Suite
+   ============================================================
+   
+   ✓ YYYY_MM_DD format test passed
+   ✓ DD-MMM-YY format test passed
+   ✓ Title/Authors extraction test passed
+   ✓ Book details extraction test passed
+   ✓ Block parsing test passed (2 blocks found)
+   ✓ Sample processing test passed
+   ✓ CSV export test passed
+   ✓ XLSX export test passed
+   
+   ============================================================
+   ✓ All tests passed!
+   ============================================================
+
+If all tests pass, the installation is correct!
+
+================================================================================
+FILE DESCRIPTIONS
+================================================================================
+
+starkmann_email_processor.py
+  - Main application with GUI interface
+  - Contains all processing logic
+  - 506 lines of Python code
+  - Uses tkinter for GUI, openpyxl for Excel export
+
+test_processor.py
+  - Test suite with 8 automated tests
+  - Run with: python test_processor.py
+  - Tests date extraction, parsing, and export functions
+  - 223 lines of code
+
+requirements.txt
+  - Lists all Python dependencies
+  - openpyxl >= 2.6.0 (for Excel export)
+
+setup.py
+  - Installation script (optional)
+  - Can be used with: python setup.py install
+
+starkmann_processor.bat
+  - Windows launcher script
+  - Double-click to run the application
+
+starkmann_processor.sh
+  - Linux/macOS launcher script
+  - Run with: ./starkmann_processor.sh
+
+README_PYAPP.md
+  - Full documentation in Markdown format
+
+INSTALL.txt
+  - This file
+
+================================================================================
+UNINSTALLATION
+================================================================================
+
+WINDOWS:
+1. Delete the entire strkm-gui folder
+2. If you want to remove Python:
+   - Go to Control Panel > Programs > Uninstall a Program
+   - Find "Python X.X.X"
+   - Click Uninstall
+
+MACOS/LINUX:
+1. Delete the strkm-gui folder: rm -rf path/to/strkm-gui
+2. Optional: Remove Python (depends on how it was installed)
+
+================================================================================
+SUPPORT & MORE INFORMATION
+================================================================================
+
+For detailed information, see: README_PYAPP.md
+
+Author: Emmanuele Somma <emmanuele@exedre.org>
+GitHub: https://github.com/exedre/strkm
+License: GNU General Public License v3.0
+
+Version: 1.0.0
+Updated: January 2026
+Python: 3.7.2 - 3.12+
+
+================================================================================
+WHAT'S NEXT?
+================================================================================
+
+1. Read the README_PYAPP.md for full documentation
+2. Run test_processor.py to verify installation
+3. Try processing a sample email file
+4. Check the output Excel file in Excel or LibreOffice Calc
+5. Report any issues or suggestions!
+
+================================================================================
