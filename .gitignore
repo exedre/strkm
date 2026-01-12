@@ -14,3 +14,14 @@ attic/
 
 # Samples directory - contains email files
 samples/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+.venv/
+venv/
+env/
