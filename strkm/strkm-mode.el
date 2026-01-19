@@ -3,7 +3,7 @@
 ;; Author: Emmanuele Somma <emmanuele@exedre.org>
 ;; Maintainer: Emmanuele Somma <emmanuele@exedre.org>
 ;; Created: 2024-11-06
-;; Version: v1.01
+;; Version: v1.03
 ;; Keywords: data, books, convenience
 ;; URL: https://github.com/exedre/strkm
 ;; Package-Requires: ((emacs "24.3"))
