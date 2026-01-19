@@ -5,8 +5,9 @@ import argparse
  
 def convert_csv_to_excel(input_file, output_file, separator):
     # Carica il CSV usando pandas con il separatore specificato
-    # Usa quoting=QUOTE_ALL per gestire campi con newline
-    df = pd.read_csv(input_file, sep=separator, quoting=1, escapechar='\\')
+    # Usa engine='python' per tolleranza con campi malformati
+    # on_bad_lines='skip' per saltare righe con numero di campi errato
+    df = pd.read_csv(input_file, sep=separator, engine='python', on_bad_lines='skip')
    
     # Salva il DataFrame come file Excel
     df.to_excel(output_file, index=False)
