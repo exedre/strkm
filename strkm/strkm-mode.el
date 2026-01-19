@@ -35,7 +35,7 @@
 (require 'tabulated-list)
 (require 'url)  ;; Assicura la disponibilità della libreria `url.el`
 
-(defconst strkm-version "v1.01"
+(defconst strkm-version "v1.03"
   "Current version of `strkm-books-mode`.")
 
 
