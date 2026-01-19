@@ -44,10 +44,12 @@
   :group 'applications)
 
 
-(defcustom strkm-csv-sep "|"
-  "Separator for CSV output."
-  :type 'string
-  :group 'strkm)
+(defun strkm-escape-csv-field (field)
+  "Remove pipe characters in CSV fields by replacing with spaces."
+  (if (stringp field)
+      (replace-regexp-in-string "|" " " field)
+    ""))
+
 
 
 (defcustom strkm-print nil
@@ -728,7 +730,7 @@ If called with C-u, select all rows regardless of their current status."
             ;; Aggiungi la riga all'output
             (cl-incf nlines)
             (setq output (concat output
-                                 (mapconcat #'identity row-data strkm-csv-sep)
+                                 (mapconcat (lambda (field) (strkm-escape-csv-field field)) row-data strkm-csv-sep)
                                  "\n"))))))
     ;; Determina il formato di esportazione e chiama la funzione appropriata
     (cond
@@ -884,7 +886,7 @@ Supports formats: YYYY_MM_DD and DD-MMM-YY (e.g., 25-Nov-24)."
       (insert (mapconcat
                (lambda (entry)
                  (let ((row (cdr entry)))
-                   (mapconcat #'identity row strkm-csv-sep)))
+                   (mapconcat (lambda (field) (strkm-escape-csv-field field)) row strkm-csv-sep)))
                (strkm-hash-table-to-list data) "\n"))
       (write-region (point-min) (point-max) csv-temp-file))
     ;; Convert the CSV to XLS
